@@ -1,0 +1,565 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum RiskTolerance {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AccountType {
+  BANK_ACCOUNT
+  CASH
+  CREDIT_CARD
+  LOAN
+  INVESTMENT
+  RETIREMENT
+  OTHER
+}
+
+model SystemHealth {
+  id        String   @id @default(uuid())
+  status    String   @default("OK")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("system_health")
+}
+
+enum CalculationStatus {
+  COMPLETED
+  FAILED
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum BudgetStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum BudgetCategoryType {
+  HOUSING
+  FOOD
+  TRANSPORTATION
+  UTILITIES
+  HEALTHCARE
+  EDUCATION
+  ENTERTAINMENT
+  SHOPPING
+  DEBT
+  INSURANCE
+  SAVINGS
+  INVESTMENTS
+  TRAVEL
+  OTHER
+}
+
+enum GoalCategory {
+  EMERGENCY_FUND
+  HOME
+  VEHICLE
+  EDUCATION
+  TRAVEL
+  RETIREMENT
+  DEBT_PAYOFF
+  MAJOR_PURCHASE
+  OTHER
+}
+
+enum GoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum PortfolioStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum InvestmentAccountType {
+  BROKERAGE
+  RETIREMENT
+  IRA
+  ROTH_IRA
+  PLAN_401K
+  PENSION
+  OTHER
+}
+
+enum InvestmentAccountStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum AssetType {
+  STOCK
+  ETF
+  MUTUAL_FUND
+  BOND
+  REIT
+  CRYPTO
+  CASH
+  OTHER
+}
+
+enum SecurityStatus {
+  ACTIVE
+  INACTIVE
+  DELISTED
+}
+
+enum InvestmentTransactionType {
+  BUY
+  SELL
+  DIVIDEND
+  DEPOSIT
+  WITHDRAWAL
+  FEE
+  INTEREST
+  OTHER
+}
+
+enum ReportType {
+  FINANCIAL_SUMMARY
+  BUDGET_REPORT
+  GOAL_REPORT
+  INVESTMENT_REPORT
+  NET_WORTH_REPORT
+}
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  firstName     String     @map("first_name")
+  lastName      String     @map("last_name")
+  status        UserStatus @default(ACTIVE)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  lastLoginAt   DateTime?  @map("last_login_at")
+
+  financialProfile       FinancialProfile?
+  financialPreferences   FinancialPreferences?
+  financialAccounts      FinancialAccount[]
+  refreshSessions        RefreshSession[]
+  calculations           Calculation[]
+  calculationAuditEvents CalculationAuditEvent[]
+  budgets                Budget[]
+  budgetExpenses         BudgetExpense[]
+  budgetCategories       BudgetCategory[]
+  financialGoals         FinancialGoal[]
+  goalContributions      GoalContribution[]
+  portfolios             Portfolio[]
+  investmentAccounts     InvestmentAccount[]
+  investmentTransactions InvestmentTransaction[]
+  reports                Report[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshSession {
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  tokenHash         String    @unique @map("token_hash")
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at")
+  replacedByTokenId String?   @map("replaced_by_token_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_sessions")
+}
+
+model FinancialProfile {
+  id                   String        @id @default(uuid())
+  userId               String        @unique @map("user_id")
+  currency             String        @default("USD")
+  country              String        @default("US")
+  monthlyIncome        Decimal       @default(0.00) @db.Decimal(15, 2) @map("monthly_income")
+  monthlyExpenses      Decimal       @default(0.00) @db.Decimal(15, 2) @map("monthly_expenses")
+  riskTolerance        RiskTolerance @default(MEDIUM) @map("risk_tolerance")
+  financialGoalSummary String?       @map("financial_goal_summary")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("financial_profiles")
+}
+
+model FinancialPreferences {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  baseCurrency String   @default("USD") @map("base_currency")
+  locale       String   @default("en-US")
+  dateFormat   String   @default("YYYY-MM-DD") @map("date_format")
+  numberFormat String   @default("standard") @map("number_format")
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("financial_preferences")
+}
+
+model FinancialAccount {
+  id              String      @id @default(uuid())
+  userId          String      @map("user_id")
+  name            String
+  type            AccountType
+  institutionName String?     @map("institution_name")
+  currency        String      @default("USD")
+  balance         Decimal     @default(0.00) @db.Decimal(15, 2)
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("financial_accounts")
+}
+
+model Calculation {
+  id                String            @id @default(uuid())
+  userId            String            @map("user_id")
+  calculatorId      String            @map("calculator_id")
+  calculatorVersion String            @default("1.0.0") @map("calculator_version")
+  status            CalculationStatus @default(COMPLETED)
+  currency          String            @default("USD")
+  input             Json
+  result            Json
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, calculatorId])
+  @@index([userId, status])
+  @@map("calculations")
+}
+
+model CalculationAuditEvent {
+  id            String   @id @default(uuid())
+  calculationId String?  @map("calculation_id")
+  userId        String   @map("user_id")
+  eventType     String   @map("event_type")
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([calculationId])
+  @@map("calculation_audit_events")
+}
+
+model BudgetCategory {
+  id          String             @id @default(uuid())
+  userId      String?            @map("user_id")
+  type        BudgetCategoryType @default(OTHER)
+  name        String
+  description String?
+  icon        String?
+  isSystem    Boolean            @default(false) @map("is_system")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  user        User?                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allocations BudgetCategoryAllocation[]
+  expenses    BudgetExpense[]
+
+  @@index([userId])
+  @@map("budget_categories")
+}
+
+model Budget {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  name        String
+  description String?
+  currency    String       @default("USD")
+  period      BudgetPeriod @default(MONTHLY)
+  startDate   DateTime     @map("start_date")
+  endDate     DateTime     @map("end_date")
+  status      BudgetStatus @default(ACTIVE)
+  totalLimit  Decimal      @db.Decimal(15, 2) @map("total_limit")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  user        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allocations BudgetCategoryAllocation[]
+  expenses    BudgetExpense[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("budgets")
+}
+
+model BudgetCategoryAllocation {
+  id         String   @id @default(uuid())
+  budgetId   String   @map("budget_id")
+  categoryId String   @map("category_id")
+  limit      Decimal  @db.Decimal(15, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  budget   Budget         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category BudgetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetId, categoryId])
+  @@index([budgetId])
+  @@map("budget_category_allocations")
+}
+
+model BudgetExpense {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  budgetId    String   @map("budget_id")
+  categoryId  String   @map("category_id")
+  amount      Decimal  @db.Decimal(15, 2)
+  currency    String   @default("USD")
+  description String?
+  expenseDate DateTime @default(now()) @map("expense_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budget   Budget         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category BudgetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([budgetId])
+  @@index([categoryId])
+  @@map("budget_expenses")
+}
+
+model FinancialGoal {
+  id            String       @id @default(uuid())
+  userId        String       @map("user_id")
+  name          String
+  description   String?
+  category      GoalCategory @default(OTHER)
+  targetAmount  Decimal      @db.Decimal(15, 2) @map("target_amount")
+  currentAmount Decimal      @default(0.00) @db.Decimal(15, 2) @map("current_amount")
+  currency      String       @default("USD")
+  targetDate    DateTime     @map("target_date")
+  status        GoalStatus   @default(ACTIVE)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("financial_goals")
+}
+
+model GoalContribution {
+  id               String   @id @default(uuid())
+  goalId           String   @map("goal_id")
+  userId           String   @map("user_id")
+  amount           Decimal  @db.Decimal(15, 2)
+  currency         String   @default("USD")
+  contributionDate DateTime @default(now()) @map("contribution_date")
+  description      String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  goal FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@index([userId])
+  @@map("goal_contributions")
+}
+
+model Portfolio {
+  id           String          @id @default(uuid())
+  userId       String          @map("user_id")
+  name         String
+  description  String?
+  baseCurrency String          @default("USD") @map("base_currency")
+  status       PortfolioStatus @default(ACTIVE)
+  cashBalance  Decimal         @default(0.00) @db.Decimal(15, 2) @map("cash_balance")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts     InvestmentAccount[]
+  holdings     Holding[]
+  transactions InvestmentTransaction[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("portfolios")
+}
+
+model InvestmentAccount {
+  id                  String                  @id @default(uuid())
+  portfolioId         String                  @map("portfolio_id")
+  userId              String                  @map("user_id")
+  name                String
+  accountType         InvestmentAccountType   @default(BROKERAGE) @map("account_type")
+  brokerName          String?                 @map("broker_name")
+  accountNumberMasked String?                 @map("account_number_masked")
+  currency            String                  @default("USD")
+  status              InvestmentAccountStatus @default(ACTIVE)
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  portfolio    Portfolio               @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings     Holding[]
+  transactions InvestmentTransaction[]
+
+  @@index([portfolioId])
+  @@index([userId])
+  @@map("investment_accounts")
+}
+
+model Security {
+  id        String         @id @default(uuid())
+  symbol    String         @unique
+  name      String
+  assetType AssetType      @default(STOCK) @map("asset_type")
+  exchange  String?
+  currency  String         @default("USD")
+  isin      String?
+  cusip     String?
+  status    SecurityStatus @default(ACTIVE)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  prices       SecurityPrice[]
+  holdings     Holding[]
+  transactions InvestmentTransaction[]
+
+  @@index([symbol])
+  @@index([assetType])
+  @@map("securities")
+}
+
+model SecurityPrice {
+  id         String   @id @default(uuid())
+  securityId String   @map("security_id")
+  price      Decimal  @db.Decimal(15, 6)
+  currency   String   @default("USD")
+  priceDate  DateTime @default(now()) @map("price_date")
+  source     String?  @default("MANUAL")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  security Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  @@index([securityId])
+  @@index([securityId, priceDate])
+  @@map("security_prices")
+}
+
+model Holding {
+  id                  String   @id @default(uuid())
+  portfolioId         String   @map("portfolio_id")
+  investmentAccountId String   @map("investment_account_id")
+  securityId          String   @map("security_id")
+  quantity            Decimal  @db.Decimal(18, 6)
+  averageCost         Decimal  @db.Decimal(15, 6) @map("average_cost")
+  totalCost           Decimal  @db.Decimal(15, 2) @map("total_cost")
+  currency            String   @default("USD")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  portfolio         Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  investmentAccount InvestmentAccount @relation(fields: [investmentAccountId], references: [id], onDelete: Cascade)
+  security          Security          @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, investmentAccountId, securityId])
+  @@index([portfolioId])
+  @@index([investmentAccountId])
+  @@index([securityId])
+  @@map("holdings")
+}
+
+model InvestmentTransaction {
+  id                  String                    @id @default(uuid())
+  userId              String                    @map("user_id")
+  portfolioId         String                    @map("portfolio_id")
+  investmentAccountId String                    @map("investment_account_id")
+  securityId          String?                   @map("security_id")
+  type                InvestmentTransactionType
+  quantity            Decimal?                  @db.Decimal(18, 6)
+  price               Decimal?                  @db.Decimal(15, 6)
+  fees                Decimal                   @default(0.00) @db.Decimal(15, 2)
+  taxes               Decimal                   @default(0.00) @db.Decimal(15, 2)
+  totalAmount         Decimal                   @db.Decimal(15, 2) @map("total_amount")
+  realizedGainLoss    Decimal?                  @db.Decimal(15, 2) @map("realized_gain_loss")
+  currency            String                    @default("USD")
+  transactionDate     DateTime                  @default(now()) @map("transaction_date")
+  description         String?
+  referenceId         String?                   @unique @map("reference_id")
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio         Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  investmentAccount InvestmentAccount @relation(fields: [investmentAccountId], references: [id], onDelete: Cascade)
+  security          Security?         @relation(fields: [securityId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([portfolioId])
+  @@index([investmentAccountId])
+  @@index([securityId])
+  @@index([portfolioId, transactionDate])
+  @@map("investment_transactions")
+}
+
+model Report {
+  id         String     @id @default(uuid())
+  userId     String     @map("user_id")
+  reportType ReportType @map("report_type")
+  title      String
+  parameters Json?
+  data       Json
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, reportType])
+  @@map("reports")
+}
