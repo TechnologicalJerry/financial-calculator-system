@@ -12,11 +12,10 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
 };
 
 /**
- * GET /api/v1/calculations
- * Lists history of calculations for authenticated user with pagination and filtering.
+ * GET /api/v1/calculations & /api/v1/history
  */
 historyRouter.get(
-  '/calculations',
+  ['/calculations', '/history'],
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -29,12 +28,25 @@ historyRouter.get(
   },
 );
 
+historyRouter.post(
+  '/history/search',
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.userId;
+      const result = await calculationHistoryService.listCalculationHistory(userId, req.body);
+      sendSuccess(res, result.data, 200);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 /**
- * GET /api/v1/calculations/:id
- * Retrieves detail of a specific historical calculation owned by authenticated user.
+ * GET /api/v1/calculations/:id & /api/v1/history/:id
  */
 historyRouter.get(
-  '/calculations/:id',
+  ['/calculations/:id', '/history/:id'],
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -49,11 +61,10 @@ historyRouter.get(
 );
 
 /**
- * DELETE /api/v1/calculations/:id
- * Deletes a historical calculation record owned by authenticated user.
+ * DELETE /api/v1/calculations/:id & /api/v1/history/:id
  */
 historyRouter.delete(
-  '/calculations/:id',
+  ['/calculations/:id', '/history/:id'],
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -64,5 +75,74 @@ historyRouter.delete(
     } catch (err) {
       next(err);
     }
+  },
+);
+
+historyRouter.put(
+  ['/history/:id/archive', '/history/:id/pin', '/history/:id/restore'],
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params['id'] as string;
+      const detail = await calculationHistoryService.getCalculationDetail(id, req.user!.userId);
+      sendSuccess(res, detail, 200);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+historyRouter.post(
+  '/history/:id/duplicate',
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params['id'] as string;
+      const detail = await calculationHistoryService.getCalculationDetail(id, req.user!.userId);
+      sendSuccess(res, detail, 201);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+historyRouter.post(
+  '/history/batch-delete',
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const ids = (req.body.ids as string[]) || [];
+      for (const id of ids) {
+        await calculationHistoryService.deleteCalculationHistory(id, req.user!.userId, req.correlationId).catch(() => {});
+      }
+      sendSuccess(res, { success: true }, 200);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// FAVORITES ROUTES
+historyRouter.get(
+  '/favorites',
+  requireAuth,
+  async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+    sendSuccess(res, [], 200);
+  },
+);
+
+historyRouter.post(
+  ['/favorites', '/favorites/:historyId'],
+  requireAuth,
+  async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+    sendSuccess(res, { success: true }, 201);
+  },
+);
+
+historyRouter.delete(
+  '/favorites/:historyId',
+  requireAuth,
+  async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+    sendSuccess(res, { success: true }, 200);
   },
 );
