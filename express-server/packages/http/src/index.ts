@@ -48,11 +48,14 @@ export function sendSuccess<T>(
   data: T,
   statusCode = 200,
   meta?: Record<string, unknown>,
+  message = 'Operation completed successfully',
 ): Response {
   return res.status(statusCode).json({
     success: true,
+    message: typeof meta === 'string' ? meta : message,
     data,
-    ...(meta ? { meta } : {}),
+    timestamp: new Date().toISOString(),
+    ...(meta && typeof meta === 'object' ? { meta } : {}),
   });
 }
 
@@ -66,6 +69,10 @@ export function sendError(
 ): Response {
   return res.status(statusCode).json({
     success: false,
+    errorCode: statusCode,
+    errorName: code,
+    message,
+    timestamp: new Date().toISOString(),
     error: {
       code,
       message,
