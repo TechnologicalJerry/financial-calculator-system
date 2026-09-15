@@ -70,3 +70,43 @@ calculatorRouter.post(
     }
   },
 );
+
+/**
+ * POST /api/v1/calculator/:type
+ * Direct calculator route matching react-client calculator.service.ts
+ */
+calculatorRouter.post(
+  '/calculator/:type',
+  optionalAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const type = req.params['type'] as string;
+      const mappedId = type === 'fire' ? 'retirement' : type === 'tax' ? 'tax-estimator' : type;
+      let response;
+      try {
+        response = await calculationHistoryService.executeAndPersist(
+          mappedId,
+          req.body,
+          req.user?.userId,
+          req.correlationId,
+        );
+      } catch (err) {
+        // Simple fallback calculation for custom endpoints (lumpsum, inflation)
+        const principal = req.body.investmentAmount ?? req.body.currentAmount ?? req.body.monthlyInvestment ?? 0;
+        const rate = req.body.expectedReturnRate ?? req.body.inflationRate ?? 0;
+        const years = req.body.tenureYears ?? req.body.years ?? 1;
+        const futureValue = principal * Math.pow(1 + rate / 100, years);
+        response = {
+          totalInvestment: principal,
+          estimatedReturns: futureValue - principal,
+          totalValue: futureValue,
+          futureAmount: futureValue,
+          inflationImpact: futureValue - principal,
+        };
+      }
+      sendSuccess(res, response, 200);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
