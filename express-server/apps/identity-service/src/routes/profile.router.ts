@@ -31,12 +31,26 @@ profileRouter.get(
 );
 
 /**
- * PATCH /api/v1/profile
+ * PATCH & PUT /api/v1/profile & /api/v1/users/profile
  */
 profileRouter.patch(
   '/profile',
   requireAuth,
   validateBody(updateProfileSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.userId;
+      const updated = await profileService.updateProfile(userId, req.body);
+      sendSuccess(res, updated, 200);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+profileRouter.put(
+  ['/profile', '/users/profile'],
+  requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.userId;
