@@ -1,0 +1,154 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, dev ]
+  pull_request:
+    branches: [ main, master, dev ]
+
+jobs:
+  react-client:
+    name: React Client (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./react-client
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: react-client/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint Code
+        run: npm run lint
+
+      - name: Build Application
+        run: npm run build
+
+  express-server:
+    name: Express Server (Node.js/TS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./express-server
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: express-server/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Type Check TypeScript
+        run: npm run typecheck
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Build Project
+        run: npm run build
+
+  nest-server:
+    name: NestJS Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./nest-server
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: nest-server/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint Code
+        run: npm run lint
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Build NestJS Server
+        run: npm run build
+
+  angular-client:
+    name: Angular Client
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./angular-client
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: angular-client/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Angular App
+        run: npm run build
+
+  vue-client:
+    name: Vue Client (Nuxt)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./vue-client
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: vue-client/pnpm-lock.yaml
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Build Nuxt App
+        run: pnpm run build
