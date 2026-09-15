@@ -29,6 +29,19 @@ authRouter.post(
   },
 );
 
+authRouter.post(
+  '/auth/signup',
+  validateBody(registerSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const user = await authService.register(req.body);
+      sendSuccess(res, user, 201);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 /**
  * POST /api/v1/auth/login
  */
@@ -46,10 +59,10 @@ authRouter.post(
 );
 
 /**
- * POST /api/v1/auth/refresh
+ * POST /api/v1/auth/refresh & /api/v1/auth/refresh-token
  */
 authRouter.post(
-  '/auth/refresh',
+  ['/auth/refresh', '/auth/refresh-token'],
   validateBody(refreshTokenSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -76,10 +89,10 @@ authRouter.post('/auth/logout', async (req: Request, res: Response, next: NextFu
 });
 
 /**
- * GET /api/v1/me
+ * GET /api/v1/me & /api/v1/users/me
  */
 authRouter.get(
-  '/me',
+  ['/me', '/users/me'],
   (req: Request, res: Response, next: NextFunction) => {
     const config = getConfig();
     authenticateJwt(config.JWT_ACCESS_SECRET)(req, res, next);
