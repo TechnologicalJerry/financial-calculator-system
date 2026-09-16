@@ -1,0 +1,733 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String      @id @default(uuid()) @db.Uuid
+  email                 String      @unique
+  username              String      @unique
+  passwordHash          String      @map("password_hash")
+  firstName             String?     @map("first_name")
+  lastName              String?     @map("last_name")
+  phoneNumber           String?     @map("phone_number")
+  status                String      @default("ACTIVE")
+  isMfaEnabled          Boolean     @default(false) @map("is_mfa_enabled")
+  mfaSecret             String?     @map("mfa_secret")
+  failedLoginAttempts   Int         @default(0) @map("failed_login_attempts")
+  lockedUntil           DateTime?   @map("locked_until")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+  deletedAt             DateTime?   @map("deleted_at")
+
+  roles                 UserRole[]
+  refreshTokens         RefreshToken[]
+  passwordHistories     PasswordHistory[]
+  loginHistories        LoginHistory[]
+  devices               Device[]
+  sessions              Session[]
+  emailVerifications    EmailVerificationToken[]
+  passwordResets        PasswordResetToken[]
+  profile               UserProfile?
+  preferences           UserPreferences?
+  addresses             UserAddress[]
+  notificationSettings  NotificationPreferences?
+  privacySettings       PrivacySettings?
+  userSettings          UserSettings?
+  portfolios            Portfolio[]
+  documents             DocumentFile[]
+  folders               DocumentFolder[]
+  aiConversations       AiConversation[]
+  aiInsights            AiInsight[]
+  investmentAccounts    InvestmentAccount[]
+  notifications         Notification[]
+  reportExports         ReportExport[]
+  userFavorites         UserFavorite[]
+
+  @@map("users")
+}
+
+model Role {
+  id           String           @id @default(uuid()) @db.Uuid
+  name         String           @unique
+  description  String?
+  isSystemRole Boolean          @default(false) @map("is_system_role")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  users        UserRole[]
+  permissions  RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique
+  description String?
+  module      String
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  token           String    @unique
+  deviceId        String?   @map("device_id") @db.Uuid
+  ipAddress       String?   @map("ip_address")
+  userAgent       String?   @map("user_agent")
+  expiresAt       DateTime  @map("expires_at")
+  revoked         Boolean   @default(false)
+  revokedAt       DateTime? @map("revoked_at")
+  replacedByToken String?   @map("replaced_by_token")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model PasswordHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_history")
+}
+
+model LoginHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  loginStatus String   @map("login_status")
+  failureReason String? @map("failure_reason")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  deviceInfo  String?  @map("device_info")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_history")
+}
+
+model Device {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  deviceFingerprint String    @map("device_fingerprint")
+  deviceName        String?   @map("device_name")
+  deviceType        String?   @map("device_type")
+  os                String?
+  browser           String?
+  ipAddress         String?   @map("ip_address")
+  isTrusted         Boolean   @default(false) @map("is_trusted")
+  lastActiveAt      DateTime  @default(now()) @map("last_active_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@map("devices")
+}
+
+model Session {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  sessionToken   String   @unique @map("session_token")
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  deviceId       String?  @map("device_id") @db.Uuid
+  expiresAt      DateTime @map("expires_at")
+  isActive       Boolean  @default(true) @map("is_active")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  token      String    @unique
+  expiresAt  DateTime  @map("expires_at")
+  verifiedAt DateTime? @map("verified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  action      String
+  resource    String
+  resourceId  String?  @map("resource_id")
+  status      String   @default("SUCCESS")
+  detailsJson String?  @map("details_json")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model UserProfile {
+  userId                        String    @id @map("user_id") @db.Uuid
+  bio                           String?
+  avatarUrl                     String?   @map("avatar_url")
+  dateOfBirth                   DateTime? @map("date_of_birth")
+  gender                        String?
+  occupation                    String?
+  company                       String?
+  profileCompletionPercentage   Int       @default(0) @map("profile_completion_percentage")
+  profileVisibility             String    @default("PRIVATE") @map("profile_visibility")
+  accountStatus                 String    @default("ACTIVE") @map("account_status")
+  lastLoginAt                   DateTime? @map("last_login_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserPreferences {
+  userId                   String  @id @map("user_id") @db.Uuid
+  currency                 String  @default("USD")
+  language                 String  @default("en")
+  country                  String  @default("US")
+  timezone                 String  @default("UTC")
+  isDarkModeEnabled        Boolean @default(true) @map("is_dark_mode_enabled")
+  theme                    String  @default("dark")
+  dateFormat               String  @default("YYYY-MM-DD") @map("date_format")
+  timeFormat               String  @default("24h") @map("time_format")
+  numberFormat             String  @default("1,234.56") @map("number_format")
+  decimalPrecision         Int     @default(2) @map("decimal_precision")
+  financialYearStartMonth  Int     @default(1) @map("financial_year_start_month")
+  defaultDashboard         String  @default("OVERVIEW") @map("default_dashboard")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserAddress {
+  id         String  @id @default(uuid()) @db.Uuid
+  userId     String  @map("user_id") @db.Uuid
+  addressType String @default("HOME") @map("address_type")
+  street     String
+  city       String
+  state      String
+  postalCode String  @map("postal_code")
+  country    String
+  isPrimary  Boolean @default(false) @map("is_primary")
+  isBilling  Boolean @default(false) @map("is_billing")
+  isShipping Boolean @default(false) @map("is_shipping")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_addresses")
+}
+
+model NotificationPreferences {
+  userId             String  @id @map("user_id") @db.Uuid
+  emailNotifications Boolean @default(true) @map("email_notifications")
+  pushNotifications  Boolean @default(true) @map("push_notifications")
+  smsNotifications   Boolean @default(false) @map("sms_notifications")
+  securityAlerts     Boolean @default(true) @map("security_alerts")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model PrivacySettings {
+  userId           String  @id @map("user_id") @db.Uuid
+  profileVisibility String  @default("PRIVATE") @map("profile_visibility")
+  showEmail        Boolean @default(false) @map("show_email")
+  showPhone        Boolean @default(false) @map("show_phone")
+  twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("privacy_settings")
+}
+
+model UserSettings {
+  userId              String  @id @map("user_id") @db.Uuid
+  autoLogoutMinutes   Int     @default(30) @map("auto_logout_minutes")
+  sessionTimeout      Int     @default(86400) @map("session_timeout")
+  loginNotifications  Boolean @default(true) @map("login_notifications")
+  mfaConfigured       Boolean @default(false) @map("mfa_configured")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model FinancialCalculator {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  category    String
+  name        String
+  strategyKey String   @map("strategy_key")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  templates   FormulaTemplate[]
+  histories   CalculationHistory[]
+
+  @@map("financial_calculators")
+}
+
+model FormulaTemplate {
+  id           String   @id @default(uuid()) @db.Uuid
+  calculatorId String   @map("calculator_id") @db.Uuid
+  code         String   @unique
+  name         String
+  expression   String
+
+  calculator FinancialCalculator @relation(fields: [calculatorId], references: [id], onDelete: Cascade)
+  versions   FormulaVersion[]
+
+  @@map("financial_formula_templates")
+}
+
+model FormulaVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  templateId    String   @map("template_id") @db.Uuid
+  versionNumber Int      @map("version_number")
+  expression    String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  template FormulaTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("financial_formula_versions")
+}
+
+model CalculationHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  calculatorId    String?  @map("calculator_id") @db.Uuid
+  calculatorCode  String   @map("calculator_code")
+  inputsJson      String   @map("inputs_json")
+  outputsJson     String   @map("outputs_json")
+  executionTimeMs Float    @map("execution_time_ms")
+  executionStatus String   @default("SUCCESS") @map("execution_status")
+  isArchived      Boolean  @default(false) @map("is_archived")
+  isPinned        Boolean  @default(false) @map("is_pinned")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  calculator           FinancialCalculator?   @relation(fields: [calculatorId], references: [id], onDelete: SetNull)
+  amortizationSchedules AmortizationSchedule[]
+  favorites            UserFavorite[]
+
+  @@map("financial_calculation_history")
+}
+
+model AmortizationSchedule {
+  id               String   @id @default(uuid()) @db.Uuid
+  historyId        String   @map("history_id") @db.Uuid
+  periodNumber     Int      @map("period_number")
+  paymentDate      DateTime @map("payment_date")
+  beginningBalance Decimal  @map("beginning_balance") @db.Decimal(18, 4)
+  paymentAmount    Decimal  @map("payment_amount") @db.Decimal(18, 4)
+  principalPaid    Decimal  @map("principal_paid") @db.Decimal(18, 4)
+  interestPaid     Decimal  @map("interest_paid") @db.Decimal(18, 4)
+  endingBalance    Decimal  @map("ending_balance") @db.Decimal(18, 4)
+
+  history CalculationHistory @relation(fields: [historyId], references: [id], onDelete: Cascade)
+
+  @@map("amortization_schedules")
+}
+
+model TaxRuleSet {
+  id               String   @id @default(uuid()) @db.Uuid
+  countryCode      String   @map("country_code")
+  taxType          String   @map("tax_type")
+  taxBracketsJson  String   @map("tax_brackets_json")
+  effectiveYear    Int      @map("effective_year")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("tax_rule_sets")
+}
+
+model Portfolio {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  type      String   @default("PERSONAL")
+  currency  String   @default("USD")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets             PortfolioAsset[]
+  liabilities        PortfolioLiability[]
+  transactions       Transaction[]
+  budgets            Budget[]
+  goals              FinancialGoal[]
+  snapshots          NetWorthSnapshot[]
+  investmentAccounts InvestmentAccount[]
+
+  @@map("portfolios")
+}
+
+model PortfolioAsset {
+  id           String   @id @default(uuid()) @db.Uuid
+  portfolioId  String   @map("portfolio_id") @db.Uuid
+  name         String
+  assetType    String   @map("asset_type")
+  currentValue Decimal  @map("current_value") @db.Decimal(18, 4)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("portfolio_assets")
+}
+
+model PortfolioLiability {
+  id                String   @id @default(uuid()) @db.Uuid
+  portfolioId       String   @map("portfolio_id") @db.Uuid
+  name              String
+  liabilityType     String   @map("liability_type")
+  outstandingAmount Decimal  @map("outstanding_amount") @db.Decimal(18, 4)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("portfolio_liabilities")
+}
+
+model Transaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  portfolioId     String   @map("portfolio_id") @db.Uuid
+  transactionType String   @map("transaction_type")
+  amount          Decimal  @db.Decimal(18, 4)
+  category        String
+  description     String?
+  transactionDate DateTime @map("transaction_date")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model Budget {
+  id          String   @id @default(uuid()) @db.Uuid
+  portfolioId String   @map("portfolio_id") @db.Uuid
+  name        String
+  totalLimit  Decimal  @map("total_limit") @db.Decimal(18, 4)
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  portfolio  Portfolio        @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+
+  @@map("budgets")
+}
+
+model BudgetCategory {
+  id             String  @id @default(uuid()) @db.Uuid
+  budgetId       String  @map("budget_id") @db.Uuid
+  categoryName   String  @map("category_name")
+  allocatedAmount Decimal @map("allocated_amount") @db.Decimal(18, 4)
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("budget_categories")
+}
+
+model FinancialGoal {
+  id            String   @id @default(uuid()) @db.Uuid
+  portfolioId   String   @map("portfolio_id") @db.Uuid
+  name          String
+  targetAmount  Decimal  @map("target_amount") @db.Decimal(18, 4)
+  currentAmount Decimal  @default(0) @map("current_amount") @db.Decimal(18, 4)
+  deadline      DateTime?
+  status        String   @default("IN_PROGRESS")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  portfolio  Portfolio       @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  milestones GoalMilestone[]
+
+  @@map("financial_goals")
+}
+
+model GoalMilestone {
+  id           String   @id @default(uuid()) @db.Uuid
+  goalId       String   @map("goal_id") @db.Uuid
+  title        String
+  targetAmount Decimal  @map("target_amount") @db.Decimal(18, 4)
+  isAchieved   Boolean  @default(false) @map("is_achieved")
+
+  goal FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("goal_milestones")
+}
+
+model NetWorthSnapshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  portfolioId      String   @map("portfolio_id") @db.Uuid
+  totalAssets      Decimal  @map("total_assets") @db.Decimal(18, 4)
+  totalLiabilities Decimal  @map("total_liabilities") @db.Decimal(18, 4)
+  netWorth         Decimal  @map("net_worth") @db.Decimal(18, 4)
+  snapshotDate     DateTime @default(now()) @map("snapshot_date")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("networth_snapshots")
+}
+
+model DocumentFolder {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  parentId  String?  @map("parent_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  DocumentFolder[] @relation("FolderHierarchy")
+  documents DocumentFile[]
+
+  @@map("document_folders")
+}
+
+model DocumentFile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  folderId  String?  @map("folder_id") @db.Uuid
+  fileName  String   @map("file_name")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  storageUrl String  @map("storage_url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@map("document_files")
+}
+
+model FeatureFlag {
+  id                String   @id @default(uuid()) @db.Uuid
+  keyName           String   @unique @map("key_name")
+  isEnabled         Boolean  @default(false) @map("is_enabled")
+  rolloutPercentage Int      @default(100) @map("rollout_percentage")
+  targetRoles       String?  @map("target_roles")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("feature_flags")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid()) @db.Uuid
+  category    String
+  configKey   String   @unique @map("config_key")
+  configValue String   @map("config_value")
+  isSecret    Boolean  @default(false) @map("is_secret")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("system_configs")
+}
+
+model ApprovalWorkflow {
+  id          String   @id @default(uuid()) @db.Uuid
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  requestedBy String   @map("requested_by") @db.Uuid
+  approvedBy  String?  @map("approved_by") @db.Uuid
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("approval_workflows")
+}
+
+model AiConversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           String
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+model AiInsight {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  severity  String   @default("INFO")
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_insights")
+}
+
+model InvestmentAccount {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  portfolioId         String?  @map("portfolio_id") @db.Uuid
+  accountName         String   @map("account_name")
+  accountType         String   @map("account_type")
+  institutionName     String?  @map("institution_name")
+  accountNumberMasked  String?  @map("account_number_masked")
+  balance             Decimal  @default(0) @db.Decimal(18, 4)
+  currency            String   @default("USD")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio Portfolio?          @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  holdings  InvestmentHolding[]
+
+  @@map("investment_accounts")
+}
+
+model InvestmentHolding {
+  id           String   @id @default(uuid()) @db.Uuid
+  accountId    String   @map("account_id") @db.Uuid
+  symbol       String
+  name         String
+  assetClass   String   @map("asset_class")
+  quantity     Decimal  @db.Decimal(18, 4)
+  costBasis    Decimal  @map("cost_basis") @db.Decimal(18, 4)
+  currentPrice Decimal  @map("current_price") @db.Decimal(18, 4)
+  currentValue Decimal  @map("current_value") @db.Decimal(18, 4)
+  lastUpdated  DateTime @default(now()) @map("last_updated")
+
+  account InvestmentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("investment_holdings")
+}
+
+model Notification {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  title        String
+  message      String
+  type         String    @default("INFO")
+  isRead       Boolean   @default(false) @map("is_read")
+  readAt       DateTime? @map("read_at")
+  metadataJson String?   @map("metadata_json")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model BackgroundJob {
+  id          String    @id @default(uuid()) @db.Uuid
+  jobName     String    @map("job_name")
+  status      String    @default("PENDING")
+  type        String    @default("GENERAL")
+  payloadJson String?   @map("payload_json")
+  errorLog    String?   @map("error_log")
+  retryCount  Int       @default(0) @map("retry_count")
+  maxRetries  Int       @default(3) @map("max_retries")
+  scheduledAt DateTime? @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("background_jobs")
+}
+
+model ReportExport {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  reportType  String   @map("report_type")
+  title       String
+  format      String   @default("PDF")
+  fileUrl     String?  @map("file_url")
+  status      String   @default("COMPLETED")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("report_exports")
+}
+
+model UserFavorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  historyId String   @map("history_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history CalculationHistory @relation(fields: [historyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, historyId])
+  @@map("user_favorites")
+}
