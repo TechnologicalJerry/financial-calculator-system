@@ -16,14 +16,15 @@ export function VerifyEmailCard() {
   const token = searchParams.get('token');
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>(token ? 'loading' : 'error');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>(
+    token ? '' : 'No verification token provided in URL.',
+  );
   const [emailToResend, setEmailToResend] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [resendSent, setResendSent] = useState(false);
 
   useEffect(() => {
     if (!token) {
-      setErrorMessage('No verification token provided in URL.');
       return;
     }
 
