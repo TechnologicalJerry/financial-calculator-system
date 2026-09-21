@@ -20,13 +20,12 @@ export function LoginForm() {
   const isExpired = searchParams.get('expired') === 'true';
 
   const [serverError, setServerError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => searchParams.get('token') !== null);
   const setAuth = useAuthStore((state) => state.setAuth);
 
   React.useEffect(() => {
     const tokenParam = searchParams.get('token');
     if (tokenParam) {
-      setIsLoading(true);
       useAuthStore.getState().setAccessToken(tokenParam);
       userService
         .getCurrentUser()
