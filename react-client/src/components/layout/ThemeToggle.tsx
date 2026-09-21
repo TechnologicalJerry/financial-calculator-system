@@ -1,23 +1,26 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window === 'undefined') return 'dark';
+    return (localStorage.getItem('app-theme') as 'dark' | 'light' | null) || 'dark';
+  });
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
-    setMounted(true);
-    const storedTheme = localStorage.getItem('app-theme') as 'dark' | 'light' | null;
-    const initialTheme = storedTheme || 'dark';
-    setTheme(initialTheme);
-    if (initialTheme === 'dark') {
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, []);
+  }, [theme]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
