@@ -41,6 +41,12 @@ jobs:
 
       - name: Run Tests
         run: npm run test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/financial_calculator_test
+          REDIS_URL: redis://localhost:6379
+          RABBITMQ_URL: amqp://localhost:5672
+          JWT_ACCESS_SECRET: ci-test-access-secret
 
       - name: Build Application
         run: npm run build
